@@ -1,0 +1,161 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+plot(cars)
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+
+## reading data
+library(readr)
+activity <- read_csv("activity.csv")
+View(activity)
+data <- read.csv("activity.csv", header = TRUE)
+
+# library
+library(tidyverse)
+library(dplyr)
+
+# view data
+head(data)
+
+summary(data)
+
+dim(data)
+
+## 1. from the organized clean data(delete the N/A)
+data$date <- as.Date(as.character(data$date))
+
+dataNA <- is.na(data$steps)
+
+cleanData <- data[!dataNA,]
+
+## 2. what is the mean total number of steps taken per day?
+total_steps <- tapply(cleanData$steps, cleanData$date, FUN=sum)
+
+# calculate the mean
+mean(total_steps)
+
+# calculate the median
+median(total_steps)
+
+# loading ggplot2
+library(ggplot2)
+total_steps
+
+## Make a histogram of the total number of steps taken each day:
+plot_1 <- qplot(total_steps,
+                binwidth=1000,
+                geom="histogram",
+                xlab="Total Daily Steps")
+print(plot_1)
+dev.copy(png,"1_Total_Daily_Steps.png")
+dev.off()
+
+## 3. what is the average daily activity pattern?
+pattern_average <- aggregate(x = list(steps = cleanData$steps),
+                             by = list(interval = cleanData$interval),
+                             FUN = mean)
+                             
+plot_2 <- ggplot(data = pattern_average, aes(x=interval, y=steps)) +
+          geom_line(color = "green") + 
+          xlab("5_minute interval") +
+          ylab("Average number of steps")
+          
+print(plot_2)
+
+dev.copy(png,"2_Total_Daily_Steps_NewData.png")
+
+dev.off()
+
+# which 5_minute interval on average across all the days in the dataset,
+# contains the maximum number of steps?
+pattern_average[which.max(pattern_average$steps),]
+
+
+## inputing missing values
+# 1. calculate and report the total number of missing values in the dataset
+missing_values <- sum(dataNA)
+missing_values
+
+## 2. Devise a strategy for filling in all the missing values in the dataset
+# strategy:
+replace_mean <- function(x) replace(x, is.na(x), mean(x, na.rm = TRUE))
+
+## 3. create a new dataset that is equal to the the original dataset but with
+# the missing data filled in
+# new data
+newdata <- data %>%
+           group_by(interval) %>%
+           mutate(steps = replace_mean(steps))
+           
+# view data
+head(newdata)
+
+# check
+missing_values_newdata <- sum(is.na(newdata$steps))
+
+total_steps_newdata <- tapply(newdata$steps, newdata$date, FUN=sum)
+
+# calculating mean new data
+mean(total_steps_newdata)
+
+# calculating median new data
+median(total_steps_newdata)
+
+## make a histogram
+plot_3 <- qplot(total_steps_newdata, binwidth=1000, geom="histogram", xlab="Total Daily Steps")
+
+print(plot_3)
+
+dev.copy(png,"3_Total_Dail_Steps_newdata.png")
+
+dev.off()
+
+
+## 4.2 Do these values differ from the estimate from the first part of  of the assignment?
+dif_mean <- mean(total_steps)-mean(total_steps_newdata)
+dif_mean
+
+dif_median <- median(total_steps)-median(total_steps_newdata)
+dif_median
+
+# 5. Are there differences in activity patterns between weekdays and weekends?
+## 5.1. create a new factor variable in the the dataset with two levels-"weekday"
+# and "weekend" indicating whether a given date is a weekday or weekend day.
+newdata$date <- as.Date(newdata$date)
+
+newdata$weekday <- weekdays(newdata$date)
+
+newdata$weekend <- ifelse(newdata$weekday=="sabado" | newdata$weekday=="domingo",
+"weekend", "weekday" )
+
+newdata_weekend_weeday <- aggregate(newdata$steps,
+                                    by = list(newdata$weekend,
+                                              newdata$interval), mean)
+                                              
+names(newdata_weekend_weeday) <- c("weekend","interval","steps")
+
+plot_4 <- ggplot(newdata_weekend_weeday, aes(x = interval, y =steps,
+color=weekend)) +
+          geom_line() +
+          facet_grid(weekend ~ .) +
+          labs(title = "mean of Steps by interval", x = "interval", y = "steps")
+          
+print(plot_4)
+
+dev.copy(png,"4_mean_of_steps_by_Interval.png")
+
+dev.off()
+
